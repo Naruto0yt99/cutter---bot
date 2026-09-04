@@ -8,7 +8,7 @@ ASK_TRIM = 1
 user_files = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Video bhejo, fir time bhejo ex: 0:05 0:30")
+    await update.message.reply_text("Video bhejo, fir time bhejo jaise: 0:05 0:30")
 
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     f = update.message.video or update.message.document
@@ -16,16 +16,20 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ip = os.path.join(tempfile.gettempdir(), f"{update.effective_user.id}_input.mp4")
     await nf.download_to_drive(ip)
     user_files[update.effective_user.id] = ip
-    await update.message.reply_text("Mil gaya! Ab time bhejo: `0:05 0:30`", parse_mode='Markdown')
+    await update.message.reply_text("Mil gaya! Ab time bhejo: 0:05 0:30")
     return ASK_TRIM
 
 async def handle_trim(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    s,e = update.message.text.split()
-    ip = user_files[update.effective_user.id]
-    op = os.path.join(tempfile.gettempdir(), f"{update.effective_user.id}_out.mp4")
-    await update.message.reply_text(f"Cutting {s}-{e}...")
-    subprocess.run(["ffmpeg","-y","-ss",s,"-to",e,"-i",ip,"-c:v","libx264","-c:a","aac",op])
-    await context.bot.send_video(chat_id=update.effective_chat.id, video=open(op,'rb'))
+    try:
+        s,e = update.message.text.split()
+        ip = user_files.get(update.effective_user.id)
+        if not ip: return await update.message.reply_text("Pehle video bhejo")
+        op = os.path.join(tempfile.gettempdir(), f"{update.effective_user.id}_out.mp4")
+        await update.message.reply_text(f"Cutting {s} to {e}...")
+        subprocess.run(["ffmpeg","-y","-ss",s,"-to",e,"-i",ip,"-c:v","libx264","-c:a","aac",op], check=True)
+        await context.bot.send_video(chat_id=update.effective_chat.id, video=open(op,'rb'))
+    except Exception as ex:
+        await update.message.reply_text(f"Error: {ex}")
     return ConversationHandler.END
 
 def main():
